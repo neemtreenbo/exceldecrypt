@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel File Decryptor</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card">
+                    <div class="card-header text-center">
+                        <h2 class="mb-0">
+                            <i class="fas fa-unlock me-2"></i>
+                            Excel File Decryptor
+                        </h2>
+                        <p class="text-muted mb-0">Decrypt password-protected Excel files</p>
+                    </div>
+                    <div class="card-body">
+                        <!-- Upload Form -->
+                        <form id="decryptForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="fileInput" class="form-label">
+                                    <i class="fas fa-file-excel me-2"></i>
+                                    Select Excel File (.xlsx)
+                                </label>
+                                <input type="file" 
+                                       class="form-control" 
+                                       id="fileInput" 
+                                       name="file" 
+                                       accept=".xlsx"
+                                       required>
+                                <div class="form-text">Maximum file size: 50MB</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="passwordInput" class="form-label">
+                                    <i class="fas fa-key me-2"></i>
+                                    Password
+                                </label>
+                                <input type="password" 
+                                       class="form-control" 
+                                       id="passwordInput" 
+                                       name="password" 
+                                       placeholder="Enter file password"
+                                       required>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg" id="decryptBtn">
+                                    <i class="fas fa-unlock me-2"></i>
+                                    Decrypt & Download
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <!-- Progress Bar -->
+                        <div id="progressContainer" class="mt-3" style="display: none;">
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" 
+                                     style="width: 100%">
+                                    Decrypting file...
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Alert Container -->
+                        <div id="alertContainer" class="mt-3"></div>
+                    </div>
+                </div>
+                
+                <!-- API Documentation -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-code me-2"></i>
+                            API Documentation
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <h6>Endpoint</h6>
+                        <code>POST /decrypt_excel</code>
+                        
+                        <h6 class="mt-3">Request Format</h6>
+                        <p>Content-Type: <code>multipart/form-data</code></p>
+                        <ul>
+                            <li><strong>file</strong>: The encrypted Excel file (.xlsx)</li>
+                            <li><strong>password</strong>: The password to decrypt the file</li>
+                        </ul>
+                        
+                        <h6 class="mt-3">Response</h6>
+                        <ul>
+                            <li><strong>Success</strong>: Returns the decrypted Excel file as a download</li>
+                            <li><strong>Error</strong>: Returns JSON with error details</li>
+                        </ul>
+                        
+                        <h6 class="mt-3">Example with curl</h6>
+                        <pre class="bg-dark p-2 rounded"><code>curl -X POST \
+  -F "file=@encrypted_file.xlsx" \
+  -F "password=your_password" \
+  http://localhost:5000/decrypt_excel \
+  --output unprotected_file.xlsx</code></pre>
+  
+                        <div class="alert alert-info mt-3">
+                            <h6><i class="fas fa-info-circle me-2"></i>Important Notes</h6>
+                            <ul class="mb-0">
+                                <li>Downloaded files have "_unprotected.xlsx" suffix and timestamp for uniqueness</li>
+                                <li>The API removes both file encryption AND worksheet/workbook protection</li>
+                                <li>If download seems corrupted, try using curl command above or clear browser cache</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('decryptForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const form = e.target;
+            const formData = new FormData(form);
+            const submitBtn = document.getElementById('decryptBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const alertContainer = document.getElementById('alertContainer');
+            
+            // Clear previous alerts
+            alertContainer.innerHTML = '';
+            
+            // Validate inputs
+            const file = formData.get('file');
+            const password = formData.get('password');
+            
+            if (!file || file.size === 0) {
+                showAlert('Please select an Excel file.', 'warning');
+                return;
+            }
+            
+            if (!password) {
+                showAlert('Please enter the password.', 'warning');
+                return;
+            }
+            
+            // Show progress and disable button
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Decrypting...';
+            progressContainer.style.display = 'block';
+            
+            try {
+                const response = await fetch('/decrypt_excel', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    // Get filename from Content-Disposition header or use default
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = 'unprotected_file.xlsx';
+                    
+                    if (contentDisposition && contentDisposition.includes('filename=')) {
+                        filename = contentDisposition.split('filename=')[1].replace(/"/g, '');
+                    }
+                    
+                    // Create blob and download with proper headers to prevent caching
+                    const blob = await response.blob();
+                    
+                    // Add timestamp to filename to ensure uniqueness
+                    const timestamp = new Date().getTime();
+                    const filenameParts = filename.split('.');
+                    if (filenameParts.length > 1) {
+                        filename = filenameParts.slice(0, -1).join('.') + '_' + timestamp + '.' + filenameParts[filenameParts.length - 1];
+                    } else {
+                        filename = filename + '_' + timestamp;
+                    }
+                    
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    // Clean up after a short delay
+                    setTimeout(() => {
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                    }, 100);
+                    
+                    showAlert(`File decrypted successfully! Downloaded as: ${filename}`, 'success');
+                    form.reset();
+                } else {
+                    const errorData = await response.json();
+                    showAlert(errorData.error || 'An error occurred during decryption.', 'danger');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('Network error. Please check your connection and try again.', 'danger');
+            } finally {
+                // Reset UI
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-unlock me-2"></i>Decrypt & Download';
+                progressContainer.style.display = 'none';
+            }
+        });
+        
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show`;
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            alertContainer.appendChild(alert);
+            
+            // Auto-dismiss success alerts after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    if (alert.parentNode) {
+                        alert.remove();
+                    }
+                }, 5000);
+            }
+        }
+        
+        // File size validation
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const maxSize = 50 * 1024 * 1024; // 50MB
+                if (file.size > maxSize) {
+                    showAlert('File size exceeds 50MB limit. Please choose a smaller file.', 'warning');
+                    e.target.value = '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
