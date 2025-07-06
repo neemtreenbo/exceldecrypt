@@ -1,20 +1,15 @@
-# Use official Node.js image
-FROM node:18
+FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
 # Install dependencies
-RUN npm install
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
+# Copy your app
 COPY . .
 
-# Expose port (if you use something like Express.js)
-EXPOSE 3000
+EXPOSE 8000
 
-# Start the app
-CMD ["npm", "start"]
+# Start using Gunicorn
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8000"]
